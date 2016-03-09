@@ -24,17 +24,12 @@ extension UIView {
     
     func fadeInAndOut(duration: NSTimeInterval = 1.0, delay: NSTimeInterval = 0.0, finished: () -> Bool, completion: ((Bool) -> Void)) {
         
-        print("FadeInOut\(finished)")
-        
         fadeOut(1.0, delay: 0.0, completion: { _ in
             self.fadeIn(1.0, delay: 0.0, completion: {
                 _ in
                 
                 if finished() {
-                    print("Calling FadeInOut\(finished())")
                     self.fadeInAndOut(1.0, delay: 0.0, finished: finished, completion: completion)
-                } else {
-                    print("Not calling FadeInOut\(finished())")
                 }
             })
         })
