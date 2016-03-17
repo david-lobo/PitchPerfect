@@ -11,8 +11,9 @@ import AVFoundation
 
 class RecordSoundsViewController: UIViewController, AVAudioRecorderDelegate {
     
+    // Disabled state means no action possible
     enum RecordingState {
-        case Inactive, Recording, Paused
+        case Inactive, Recording, Paused, NoPermission
     }
     
     var recordingState: RecordSoundsViewController.RecordingState!
@@ -25,6 +26,7 @@ class RecordSoundsViewController: UIViewController, AVAudioRecorderDelegate {
     let recordingInProgressText = "Recording in Progress"
     let recordingInactiveText = "Tap to Record"
     let recordingPausedText = "Recording Paused"
+    let recordingPermissionsText = "Recording not permitted"
     
     // MARK: IB Outlet
     
@@ -90,13 +92,20 @@ class RecordSoundsViewController: UIViewController, AVAudioRecorderDelegate {
         let filePath = NSURL.fileURLWithPathComponents(pathArray)
         
         let session = AVAudioSession.sharedInstance()
-        try! session.setCategory(AVAudioSessionCategoryPlayAndRecord)
         
-        try! audioRecorder = AVAudioRecorder(URL: filePath!, settings: [:])
-        audioRecorder.delegate = self
-        audioRecorder.meteringEnabled = true
-        audioRecorder.prepareToRecord()
-        audioRecorder.record()
+        do {
+        
+            try session.setCategory(AVAudioSessionCategoryPlayAndRecord)
+            try audioRecorder = AVAudioRecorder(URL: filePath!, settings: [:])
+            
+            audioRecorder.delegate = self
+            audioRecorder.meteringEnabled = true
+            audioRecorder.prepareToRecord()
+            audioRecorder.record()
+            
+        } catch {
+            print("Error setting up recording \(error)")
+        }
         
         updateUI()
     }
@@ -173,6 +182,23 @@ class RecordSoundsViewController: UIViewController, AVAudioRecorderDelegate {
                 // animate until state changes
                 animateRecordButton()
                 break
+                
+            case RecordingState.NoPermission:
+                
+                // Update the status label
+                recordingInProgress.text = recordingPermissionsText
+                recordingInProgress.sizeToFit()
+                recordingInProgress.hidden = false
+                
+                // make the relevant buttons active/visible
+                pauseButton.enabled = false
+                resumeButton.enabled = false
+                stopButton.hidden = true
+                pauseButton.hidden = true
+                resumeButton.hidden = true
+                recordButton.enabled = true
+                
+                break
             }
         }
     }
@@ -186,8 +212,26 @@ class RecordSoundsViewController: UIViewController, AVAudioRecorderDelegate {
     //MARK: IB Action
     
     @IBAction func changeRecordingState(sender: UIButton) {
+        print(recordingState)
         if recordingState == RecordingState.Inactive {
-            startRecording()
+            
+            // Making sure the user has granted permission before recording
+            if AVAudioSession.sharedInstance().recordPermission() == AVAudioSessionRecordPermission.Granted {
+                startRecording()
+            } else {
+            
+            // Request permission or display permission message on screen
+                AVAudioSession.sharedInstance().requestRecordPermission() { [unowned self] (allowed: Bool) -> Void in
+                    dispatch_async(dispatch_get_main_queue()) {
+                        if allowed {
+                            self.startRecording()
+                        } else {
+                            self.recordingState = RecordingState.NoPermission
+                            self.updateUI()
+                        }
+                    }
+                }
+            }
         } else if recordingState == RecordingState.Recording {
             pauseRecording()
         } else if recordingState == RecordingState.Paused {

@@ -92,9 +92,15 @@ class PlaySoundsViewController: UIViewController {
         audioEngine.prepare()
         
         audioPlayerNode.scheduleFile(audioFile, atTime: nil, completionHandler: nil)
-        try! audioEngine.start()
         
-        audioPlayerNode.play()
+        do {
+        
+            try audioEngine.start()
+        
+            audioPlayerNode.play()
+        } catch {
+            print("Audio playback error \(error)")
+        }
     }
     
     // MARK: IB Action
